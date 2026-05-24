@@ -1,4 +1,4 @@
-from fastapi import APIRouter, File, Form, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 
 from app.models.response_models import ProcessingResponse
 from app.services.interpolation_service import build_terrain_grid
@@ -18,6 +18,18 @@ async def process_xyz_file(
     file: UploadFile = File(...),
     grid_size: int = Form(50),
 ):
+    if grid_size < 5:
+        raise HTTPException(
+            status_code=400,
+            detail="grid_size must be at least 5",
+        )
+
+    if grid_size > 1000:
+        raise HTTPException(
+            status_code=400,
+            detail="grid_size is too large. Maximum allowed value is 1000",
+        )
+
     dataframe = await read_xyz_file(file)
 
     grid = build_terrain_grid(dataframe, grid_size=grid_size)

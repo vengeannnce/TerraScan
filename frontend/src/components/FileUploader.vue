@@ -36,7 +36,7 @@ function handleFileChange(event) {
           v-model.number="gridSize"
           type="number"
           min="5"
-          max="300"
+          max="1000"
         />
       </label>
     </div>

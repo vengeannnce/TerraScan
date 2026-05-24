@@ -1,8 +1,8 @@
 <script setup>
 import FileUploader from './components/FileUploader.vue'
 import StatsPanel from './components/StatsPanel.vue'
+import Terrain3D from './components/Terrain3D.vue'
 import Heatmap2D from './components/Heatmap2D.vue'
-import JsonPreview from './components/JsonPreview.vue'
 </script>
 
 <template>
@@ -14,7 +14,7 @@ import JsonPreview from './components/JsonPreview.vue'
 
     <FileUploader />
     <StatsPanel />
+    <Terrain3D />
     <Heatmap2D />
-    <JsonPreview />
   </main>
 </template>
