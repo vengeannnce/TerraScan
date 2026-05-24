@@ -18,3 +18,18 @@ class UploadResponse(BaseModel):
     preview: list[dict[str, float]]
     stats: TerrainStats
     status: str
+
+
+class TerrainGrid(BaseModel):
+    x: list[float]
+    y: list[float]
+    z: list[list[float]]
+
+
+class ProcessingResponse(BaseModel):
+    filename: str
+    points_count: int
+    grid_size: int
+    grid: TerrainGrid
+    stats: TerrainStats
+    status: str

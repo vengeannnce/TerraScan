@@ -7,7 +7,7 @@ from app.services.statistics_service import calculate_terrain_stats
 from app.utils.validators import validate_file_extension, validate_xyz_columns
 
 
-async def process_uploaded_xyz_file(file: UploadFile) -> dict:
+async def read_xyz_file(file: UploadFile) -> pd.DataFrame:
     validate_file_extension(file)
 
     content = await file.read()
@@ -47,8 +47,13 @@ async def process_uploaded_xyz_file(file: UploadFile) -> dict:
             detail="File does not contain valid XYZ numeric data",
         )
 
-    stats = calculate_terrain_stats(dataframe)
+    return dataframe
 
+
+async def process_uploaded_xyz_file(file: UploadFile) -> dict:
+    dataframe = await read_xyz_file(file)
+
+    stats = calculate_terrain_stats(dataframe)
     preview = dataframe.head(10).to_dict(orient="records")
 
     return {
