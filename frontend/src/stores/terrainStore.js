@@ -37,7 +37,7 @@ export const useTerrainStore = defineStore('terrain', {
       }
     },
 
-    async processFile(gridSize = 50) {
+    async processFile(gridSize = 250, tinMaxPoints = 50000) {
       if (!this.selectedFile) {
         this.error = 'Choose a file first'
         return
@@ -47,7 +47,11 @@ export const useTerrainStore = defineStore('terrain', {
       this.error = null
 
       try {
-        this.processResult = await processTerrainFile(this.selectedFile, gridSize)
+        this.processResult = await processTerrainFile(
+          this.selectedFile,
+          gridSize,
+          tinMaxPoints,
+        )
       } catch (error) {
         this.error = error.message
       } finally {

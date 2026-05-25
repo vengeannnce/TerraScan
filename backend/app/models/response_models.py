@@ -26,10 +26,20 @@ class TerrainGrid(BaseModel):
     z: list[list[float]]
 
 
+class TinMesh(BaseModel):
+    vertices: list[list[float]]
+    faces: list[list[int]]
+    source_points_count: int
+    mesh_points_count: int
+    triangles_count: int
+    max_points: int
+
+
 class ProcessingResponse(BaseModel):
     filename: str
     points_count: int
     grid_size: int
     grid: TerrainGrid
+    tin: TinMesh
     stats: TerrainStats
     status: str

@@ -22,10 +22,12 @@ export async function uploadTerrainFile(file) {
   return handleResponse(response)
 }
 
-export async function processTerrainFile(file, gridSize = 50) {
+export async function processTerrainFile(file, gridSize = 250, tinMaxPoints = 50000) {
   const formData = new FormData()
+
   formData.append('file', file)
   formData.append('grid_size', gridSize)
+  formData.append('tin_max_points', tinMaxPoints)
 
   const response = await fetch(`${API_BASE_URL}/process/`, {
     method: 'POST',

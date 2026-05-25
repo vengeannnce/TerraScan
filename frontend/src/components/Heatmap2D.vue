@@ -283,18 +283,18 @@ onBeforeUnmount(() => {
   <section v-if="grid" class="card">
     <div class="section-header">
       <div>
-        <h2>2D Heatmap</h2>
+        <h2>2D-карта рельефа</h2>
         <p class="section-description">
-          Switch between top view and side profile of the terrain.
+          Переключайтесь между видом сверху, зонами высот и боковым профилем рельефа.
         </p>
       </div>
 
       <label class="mode-switcher">
-        Map mode:
+        Режим карты:
         <select v-model="mapMode">
-          <option value="smooth">Smooth gradient</option>
-          <option value="elevation">Elevation zones</option>
-          <option value="profile">Side profile</option>
+          <option value="smooth">Плавный градиент</option>
+          <option value="elevation">Зоны высот</option>
+          <option value="profile">Боковой профиль</option>
         </select>
       </label>
     </div>
@@ -302,7 +302,7 @@ onBeforeUnmount(() => {
     <div ref="heatmapContainer" class="heatmap-container"></div>
 
     <div v-if="mapMode === 'profile'" class="range-legend">
-      <h3>Elevation ranges</h3>
+      <h3>Диапазоны высот</h3>
 
       <div class="range-items">
         <div

@@ -12,45 +12,59 @@ const result = computed(() => {
 const stats = computed(() => {
   return result.value?.stats || null
 })
+
+const tin = computed(() => {
+  return terrainStore.processResult?.tin || null
+})
 </script>
 
 <template>
   <section v-if="result" class="card">
-    <h2>Terrain information</h2>
+    <h2>Информация о рельефе</h2>
 
     <div class="stats-grid">
       <div>
-        <span>Filename</span>
+        <span>Файл</span>
         <strong>{{ result.filename }}</strong>
       </div>
 
       <div>
-        <span>Points</span>
+        <span>Точек</span>
         <strong>{{ result.points_count }}</strong>
       </div>
 
       <div v-if="result.grid_size">
-        <span>Grid size</span>
-        <strong>{{ result.grid_size }} x {{ result.grid_size }}</strong>
+        <span>2D-сетка</span>
+        <strong>{{ result.grid_size }} × {{ result.grid_size }}</strong>
+      </div>
+
+      <div v-if="tin">
+        <span>TIN-вершины</span>
+        <strong>{{ tin.mesh_points_count }}</strong>
+      </div>
+
+      <div v-if="tin">
+        <span>TIN-треугольники</span>
+        <strong>{{ tin.triangles_count }}</strong>
       </div>
 
       <div v-if="stats">
-        <span>X range</span>
+        <span>Диапазон X</span>
         <strong>{{ stats.x_min }} — {{ stats.x_max }}</strong>
       </div>
 
       <div v-if="stats">
-        <span>Y range</span>
+        <span>Диапазон Y</span>
         <strong>{{ stats.y_min }} — {{ stats.y_max }}</strong>
       </div>
 
       <div v-if="stats">
-        <span>Z range</span>
+        <span>Диапазон высот</span>
         <strong>{{ stats.z_min }} — {{ stats.z_max }}</strong>
       </div>
 
       <div v-if="stats">
-        <span>Average Z</span>
+        <span>Средняя высота</span>
         <strong>{{ stats.z_mean }}</strong>
       </div>
     </div>
