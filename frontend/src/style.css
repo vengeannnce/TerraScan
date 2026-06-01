@@ -59,7 +59,7 @@ button {
   background:
     linear-gradient(135deg, rgba(20, 184, 166, 0.95), rgba(56, 189, 248, 0.9));
   color: #001014;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: 0.01em;
   box-shadow: 0 10px 24px rgba(20, 184, 166, 0.2);
   transition:
@@ -84,34 +84,46 @@ select {
   color: var(--text-main);
 }
 
-input[type='file'] {
-  width: 100%;
-  margin-top: 10px;
-  padding: 12px;
-  border: 1px dashed rgba(20, 184, 166, 0.45);
-  border-radius: var(--radius-md);
-  background: rgba(2, 6, 23, 0.6);
-  color: var(--text-muted);
-}
-
 input[type='number'],
 select {
+  width: 100%;
   margin-top: 8px;
   padding: 10px 12px;
-  border: 1px solid var(--border-main);
+  border: 1px solid rgba(56, 189, 248, 0.22);
   border-radius: 10px;
-  background: rgba(2, 6, 23, 0.8);
+  background:
+    linear-gradient(180deg, rgba(2, 6, 23, 0.95), rgba(15, 23, 42, 0.95));
   color: var(--text-main);
   outline: none;
+  font-weight: 800;
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
 }
 
+input[type='number'] {
+  min-width: 140px;
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
+input[type='number']:hover,
+select:hover {
+  border-color: rgba(20, 184, 166, 0.5);
+}
+
 input[type='number']:focus,
 select:focus {
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.14);
+  box-shadow:
+    0 0 0 3px rgba(20, 184, 166, 0.14),
+    inset 0 0 18px rgba(20, 184, 166, 0.06);
 }
 
 .app {
@@ -227,12 +239,8 @@ select:focus {
   color: var(--accent-secondary);
 }
 
-.controls label {
-  display: inline-flex;
-  flex-direction: column;
-  gap: 4px;
-  color: var(--text-soft);
-  font-weight: 700;
+.file-info.muted {
+  color: var(--text-muted);
 }
 
 .buttons {
@@ -258,7 +266,7 @@ select:focus {
   font-weight: 700;
 }
 
-/* Layout */
+/* Upload */
 
 .upload-strip {
   margin-bottom: 20px;
@@ -270,9 +278,9 @@ select:focus {
 
 .upload-card {
   display: grid;
-  grid-template-columns: minmax(220px, 0.8fr) minmax(420px, 2fr) auto;
+  grid-template-columns: minmax(230px, 0.85fr) minmax(520px, 2fr) minmax(210px, auto);
   gap: 20px;
-  align-items: start;
+  align-items: center;
 }
 
 .upload-card-header h2 {
@@ -303,12 +311,30 @@ select:focus {
   font-size: 14px;
 }
 
+.native-file-input {
+  display: none;
+}
+
+.file-picker-button {
+  width: 160px;
+  justify-content: center;
+  border-color: rgba(163, 230, 53, 0.45);
+  background:
+    linear-gradient(135deg, rgba(163, 230, 53, 0.95), rgba(20, 184, 166, 0.9));
+}
+
 .upload-actions {
   display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  justify-content: flex-end;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 12px;
+  align-items: stretch;
+  justify-content: center;
+  min-width: 160px;
+}
+
+.upload-actions button {
+  width: 100%;
+  min-height: 46px;
 }
 
 .upload-card .error,
@@ -316,6 +342,8 @@ select:focus {
   grid-column: 1 / -1;
   margin: 0;
 }
+
+/* Main layout */
 
 .terrain-layout {
   display: grid;
@@ -394,6 +422,10 @@ select:focus {
   height: 620px;
 }
 
+.terrain-container-light {
+  background: #f1f1f1;
+}
+
 .heatmap-container {
   height: 540px;
 }
@@ -439,6 +471,58 @@ select:focus {
 
 .mode-switcher select {
   min-width: 150px;
+}
+
+.secondary-action-button {
+  min-height: 42px;
+  border-color: rgba(56, 189, 248, 0.35);
+  background:
+    linear-gradient(135deg, rgba(56, 189, 248, 0.9), rgba(20, 184, 166, 0.9));
+  color: #001014;
+  white-space: nowrap;
+}
+
+/* Height filter */
+
+.terrain-toolbar {
+  margin-bottom: 14px;
+}
+
+.height-filter-panel {
+  padding: 12px 14px;
+  border: 1px solid rgba(20, 184, 166, 0.24);
+  border-radius: 12px;
+  background: rgba(20, 184, 166, 0.06);
+}
+
+.height-filter-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+  color: var(--text-soft);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.height-filter-header strong {
+  color: var(--accent-secondary);
+}
+
+.height-filter-panel input[type='range'] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent-primary);
+  cursor: pointer;
+}
+
+.height-filter-scale {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  color: var(--text-muted);
+  font-size: 12px;
 }
 
 /* TIN info */
@@ -517,7 +601,13 @@ pre {
   }
 
   .upload-actions {
+    flex-direction: row;
     justify-content: flex-start;
+  }
+
+  .upload-actions button {
+    width: auto;
+    min-width: 130px;
   }
 
   .terrain-layout {
@@ -555,6 +645,11 @@ pre {
   .upload-card-body {
     grid-template-columns: 1fr;
   }
+
+  .height-filter-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 640px) {
@@ -582,101 +677,5 @@ pre {
 
   .mode-switcher select {
     max-width: 190px;
-  }
-}
-.native-file-input {
-  display: none;
-}
-
-.file-picker-button {
-  width: fit-content;
-  border-color: rgba(163, 230, 53, 0.45);
-  background:
-    linear-gradient(135deg, rgba(163, 230, 53, 0.95), rgba(20, 184, 166, 0.9));
-}
-
-.file-info.muted {
-  color: var(--text-muted);
-}
-input[type='number'] {
-  width: 100%;
-  min-width: 140px;
-  appearance: textfield;
-  -moz-appearance: textfield;
-  font-weight: 800;
-}
-
-/* Chrome, Edge, Safari */
-input[type='number']::-webkit-outer-spin-button,
-input[type='number']::-webkit-inner-spin-button {
-  margin: 0;
-  -webkit-appearance: none;
-}
-
-.upload-field input[type='number'] {
-  height: 46px;
-  border-color: rgba(56, 189, 248, 0.22);
-  background:
-    linear-gradient(180deg, rgba(2, 6, 23, 0.95), rgba(15, 23, 42, 0.95));
-}
-
-.upload-field input[type='number']:hover {
-  border-color: rgba(20, 184, 166, 0.5);
-}
-
-.upload-field input[type='number']:focus {
-  border-color: var(--accent-primary);
-  box-shadow:
-    0 0 0 3px rgba(20, 184, 166, 0.14),
-    inset 0 0 18px rgba(20, 184, 166, 0.06);
-}
-
-.upload-field .hint {
-  max-width: 260px;
-}
-.upload-card {
-  grid-template-columns: minmax(230px, 0.85fr) minmax(520px, 2fr) minmax(210px, auto);
-  align-items: center;
-}
-
-.upload-card-body {
-  align-items: start;
-}
-
-.upload-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  align-items: stretch;
-  justify-content: center;
-  min-width: 160px;
-}
-
-.upload-actions button {
-  width: 100%;
-  min-height: 46px;
-}
-
-.file-picker-button {
-  width: 160px;
-  justify-content: center;
-  border-color: rgba(163, 230, 53, 0.45);
-  background:
-    linear-gradient(135deg, rgba(163, 230, 53, 0.95), rgba(20, 184, 166, 0.9));
-}
-
-.file-info.muted {
-  color: var(--text-muted);
-}
-
-@media (max-width: 1180px) {
-  .upload-actions {
-    flex-direction: row;
-    justify-content: flex-start;
-  }
-
-  .upload-actions button {
-    width: auto;
-    min-width: 130px;
   }
 }

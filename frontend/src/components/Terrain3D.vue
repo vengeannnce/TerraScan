@@ -11,6 +11,7 @@ const terrainContainer = ref(null)
 const geometrySource = ref('tin')
 const renderMode = ref('solid')
 const meshDetail = ref(300)
+const heightCutoffPercent = ref(100)
 
 const grid = computed(() => {
   return terrainStore.processResult?.grid || null
@@ -20,12 +21,118 @@ const tin = computed(() => {
   return terrainStore.processResult?.tin || null
 })
 
+const activeZRange = computed(() => {
+  if (geometrySource.value === 'tin' && tin.value) {
+    return getZRangeFromVertices(tin.value.vertices)
+  }
+
+  if (grid.value) {
+    return getZRangeFromGrid(grid.value.z)
+  }
+
+  return null
+})
+
+const currentHeightCutoff = computed(() => {
+  if (!activeZRange.value) {
+    return null
+  }
+
+  const { zMin, zMax } = activeZRange.value
+
+  return zMin + ((zMax - zMin) * heightCutoffPercent.value) / 100
+})
+
+const currentHeightCutoffLabel = computed(() => {
+  if (currentHeightCutoff.value === null) {
+    return '—'
+  }
+
+  return Number(currentHeightCutoff.value).toFixed(2)
+})
+
 let scene = null
 let camera = null
 let renderer = null
 let controls = null
 let animationId = null
 let resizeObserver = null
+
+function formatNumber(value) {
+  return Number(value).toFixed(2)
+}
+
+function getBaseFilename() {
+  const filename = terrainStore.processResult?.filename || 'terrain'
+
+  return filename
+    .replace(/\.[^/.]+$/, '')
+    .replace(/[^a-zA-Z0-9а-яА-Я_-]/g, '_')
+}
+
+function downloadTextFile(content, filename, mimeType) {
+  const blob = new Blob([content], {
+    type: `${mimeType};charset=utf-8`,
+  })
+
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+
+  link.href = url
+  link.download = filename
+  link.click()
+
+  URL.revokeObjectURL(url)
+}
+
+function export3dPng() {
+  if (!renderer || !scene || !camera) {
+    return
+  }
+
+  renderer.render(scene, camera)
+
+  const imageUrl = renderer.domElement.toDataURL('image/png')
+  const link = document.createElement('a')
+
+  link.href = imageUrl
+  link.download = `${getBaseFilename()}_3d_terrain.png`
+  link.click()
+}
+
+function exportTinObj() {
+  if (!tin.value) {
+    return
+  }
+
+  const { vertices, faces } = tin.value
+  const lines = []
+
+  lines.push('# TerraScan TIN OBJ export')
+  lines.push(`# Source file: ${terrainStore.processResult?.filename || 'terrain'}`)
+  lines.push(`# Vertices: ${vertices.length}`)
+  lines.push(`# Faces: ${faces.length}`)
+
+  for (const vertex of vertices) {
+    const [x, y, z] = vertex
+
+    // OBJ uses Y as vertical axis, so we write x z y
+    lines.push(`v ${x} ${z} ${y}`)
+  }
+
+  for (const face of faces) {
+    const [a, b, c] = face
+
+    // OBJ indices start from 1
+    lines.push(`f ${a + 1} ${b + 1} ${c + 1}`)
+  }
+
+  downloadTextFile(
+    lines.join('\n'),
+    `${getBaseFilename()}_tin_model.obj`,
+    'text/plain',
+  )
+}
 
 function downsampleGrid(gridData, targetSize) {
   const sourceXSize = gridData.x.length
@@ -90,16 +197,60 @@ function getZRangeFromVertices(vertices) {
   return { zMin, zMax }
 }
 
-function createColorByHeight(value, zMin, zRange) {
-  const normalizedHeight = (value - zMin) / zRange
-  const color = new THREE.Color()
+function hexToRgb(hex) {
+  const cleanHex = hex.replace('#', '')
+  const bigint = Number.parseInt(cleanHex, 16)
 
-  color.setHSL(0.65 - normalizedHeight * 0.45, 0.8, 0.5)
-
-  return color
+  return {
+    r: ((bigint >> 16) & 255) / 255,
+    g: ((bigint >> 8) & 255) / 255,
+    b: (bigint & 255) / 255,
+  }
 }
 
-function createGridGeometry(gridData) {
+function interpolateColor(colorA, colorB, factor) {
+  return {
+    r: colorA.r + (colorB.r - colorA.r) * factor,
+    g: colorA.g + (colorB.g - colorA.g) * factor,
+    b: colorA.b + (colorB.b - colorA.b) * factor,
+  }
+}
+
+function createTerrainColor(value, zMin, zRange) {
+  const normalized = zRange === 0 ? 0 : (value - zMin) / zRange
+
+  const colorStops = [
+    { stop: 0.0, color: '#3455B5' },
+    { stop: 0.22, color: '#6F92D6' },
+    { stop: 0.5, color: '#D4CDC4' },
+    { stop: 0.78, color: '#C97A57' },
+    { stop: 1.0, color: '#B32020' },
+  ]
+
+  for (let index = 0; index < colorStops.length - 1; index += 1) {
+    const current = colorStops[index]
+    const next = colorStops[index + 1]
+
+    if (normalized >= current.stop && normalized <= next.stop) {
+      const localFactor =
+        (normalized - current.stop) / (next.stop - current.stop)
+
+      const rgb = interpolateColor(
+        hexToRgb(current.color),
+        hexToRgb(next.color),
+        localFactor,
+      )
+
+      return new THREE.Color(rgb.r, rgb.g, rgb.b)
+    }
+  }
+
+  const lastColor = hexToRgb(colorStops[colorStops.length - 1].color)
+
+  return new THREE.Color(lastColor.r, lastColor.g, lastColor.b)
+}
+
+function createGridGeometry(gridData, maxHeight = Infinity) {
   const xValues = gridData.x
   const yValues = gridData.y
   const zMatrix = gridData.z
@@ -119,7 +270,7 @@ function createGridGeometry(gridData) {
   const zRange = zMax - zMin || 1
 
   const horizontalSize = 120
-  const heightSize = 22
+  const heightSize = 26
 
   const xScale = horizontalSize / xRange
   const yScale = horizontalSize / yRange
@@ -129,11 +280,11 @@ function createGridGeometry(gridData) {
   const yCenter = (yMin + yMax) / 2
 
   const vertexCount = rows * cols
-  const indexCount = (rows - 1) * (cols - 1) * 6
 
   const positions = new Float32Array(vertexCount * 3)
   const colors = new Float32Array(vertexCount * 3)
-  const indices = new Uint32Array(indexCount)
+  const sourceHeights = new Float32Array(vertexCount)
+  const indices = []
 
   let vertexOffset = 0
   let colorOffset = 0
@@ -143,13 +294,16 @@ function createGridGeometry(gridData) {
       const dataX = xValues[col]
       const dataY = yValues[row]
       const dataZ = zMatrix[row][col]
+      const vertexIndex = row * cols + col
 
       positions[vertexOffset] = (dataX - xCenter) * xScale
       positions[vertexOffset + 1] = (dataZ - zMin) * zScale
       positions[vertexOffset + 2] = (dataY - yCenter) * yScale
       vertexOffset += 3
 
-      const color = createColorByHeight(dataZ, zMin, zRange)
+      sourceHeights[vertexIndex] = dataZ
+
+      const color = createTerrainColor(dataZ, zMin, zRange)
 
       colors[colorOffset] = color.r
       colors[colorOffset + 1] = color.g
@@ -158,8 +312,6 @@ function createGridGeometry(gridData) {
     }
   }
 
-  let indexOffset = 0
-
   for (let row = 0; row < rows - 1; row += 1) {
     for (let col = 0; col < cols - 1; col += 1) {
       const topLeft = row * cols + col
@@ -167,15 +319,21 @@ function createGridGeometry(gridData) {
       const bottomLeft = (row + 1) * cols + col
       const bottomRight = bottomLeft + 1
 
-      indices[indexOffset] = topLeft
-      indices[indexOffset + 1] = bottomLeft
-      indices[indexOffset + 2] = topRight
+      if (
+        sourceHeights[topLeft] <= maxHeight &&
+        sourceHeights[bottomLeft] <= maxHeight &&
+        sourceHeights[topRight] <= maxHeight
+      ) {
+        indices.push(topLeft, bottomLeft, topRight)
+      }
 
-      indices[indexOffset + 3] = topRight
-      indices[indexOffset + 4] = bottomLeft
-      indices[indexOffset + 5] = bottomRight
-
-      indexOffset += 6
+      if (
+        sourceHeights[topRight] <= maxHeight &&
+        sourceHeights[bottomLeft] <= maxHeight &&
+        sourceHeights[bottomRight] <= maxHeight
+      ) {
+        indices.push(topRight, bottomLeft, bottomRight)
+      }
     }
   }
 
@@ -183,14 +341,14 @@ function createGridGeometry(gridData) {
 
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-  geometry.setIndex(new THREE.BufferAttribute(indices, 1))
+  geometry.setIndex(indices)
   geometry.computeVertexNormals()
   geometry.computeBoundingBox()
 
   return geometry
 }
 
-function createTinGeometry(tinData) {
+function createTinGeometry(tinData, maxHeight = Infinity) {
   const vertices = tinData.vertices
   const faces = tinData.faces
 
@@ -209,7 +367,7 @@ function createTinGeometry(tinData) {
   const zRange = zMax - zMin || 1
 
   const horizontalSize = 120
-  const heightSize = 22
+  const heightSize = 26
 
   const xScale = horizontalSize / xRange
   const yScale = horizontalSize / yRange
@@ -220,7 +378,8 @@ function createTinGeometry(tinData) {
 
   const positions = new Float32Array(vertices.length * 3)
   const colors = new Float32Array(vertices.length * 3)
-  const indices = new Uint32Array(faces.length * 3)
+  const sourceHeights = new Float32Array(vertices.length)
+  const indices = []
 
   let vertexOffset = 0
   let colorOffset = 0
@@ -233,7 +392,9 @@ function createTinGeometry(tinData) {
     positions[vertexOffset + 2] = (dataY - yCenter) * yScale
     vertexOffset += 3
 
-    const color = createColorByHeight(dataZ, zMin, zRange)
+    sourceHeights[index] = dataZ
+
+    const color = createTerrainColor(dataZ, zMin, zRange)
 
     colors[colorOffset] = color.r
     colors[colorOffset + 1] = color.g
@@ -241,21 +402,25 @@ function createTinGeometry(tinData) {
     colorOffset += 3
   }
 
-  let indexOffset = 0
-
   for (let index = 0; index < faces.length; index += 1) {
-    indices[indexOffset] = faces[index][0]
-    indices[indexOffset + 1] = faces[index][1]
-    indices[indexOffset + 2] = faces[index][2]
+    const a = faces[index][0]
+    const b = faces[index][1]
+    const c = faces[index][2]
 
-    indexOffset += 3
+    if (
+      sourceHeights[a] <= maxHeight &&
+      sourceHeights[b] <= maxHeight &&
+      sourceHeights[c] <= maxHeight
+    ) {
+      indices.push(a, b, c)
+    }
   }
 
   const geometry = new THREE.BufferGeometry()
 
   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3))
-  geometry.setIndex(new THREE.BufferAttribute(indices, 1))
+  geometry.setIndex(indices)
   geometry.computeVertexNormals()
   geometry.computeBoundingBox()
 
@@ -264,11 +429,11 @@ function createTinGeometry(tinData) {
 
 function addTerrainToScene(geometry) {
   if (renderMode.value === 'solid') {
-    const material = new THREE.MeshStandardMaterial({
+    const material = new THREE.MeshPhongMaterial({
       vertexColors: true,
       side: THREE.DoubleSide,
-      roughness: 0.85,
-      metalness: 0.05,
+      shininess: 10,
+      flatShading: false,
     })
 
     const terrainMesh = new THREE.Mesh(geometry, material)
@@ -278,14 +443,14 @@ function addTerrainToScene(geometry) {
   }
 
   if (renderMode.value === 'transparent') {
-    const transparentMaterial = new THREE.MeshStandardMaterial({
+    const transparentMaterial = new THREE.MeshPhongMaterial({
       color: 0xffffff,
       transparent: true,
-      opacity: 0.14,
+      opacity: 0.18,
       side: THREE.DoubleSide,
+      shininess: 6,
+      flatShading: false,
       depthWrite: false,
-      roughness: 1,
-      metalness: 0,
       polygonOffset: true,
       polygonOffsetFactor: 1,
       polygonOffsetUnits: 1,
@@ -375,13 +540,16 @@ function disposeScene() {
 }
 
 function buildGeometry() {
+  const maxHeight = currentHeightCutoff.value ?? Infinity
+
   if (geometrySource.value === 'tin' && tin.value) {
-    return createTinGeometry(tin.value)
+    return createTinGeometry(tin.value, maxHeight)
   }
 
   if (grid.value) {
     const terrainGrid = downsampleGrid(grid.value, meshDetail.value)
-    return createGridGeometry(terrainGrid)
+
+    return createGridGeometry(terrainGrid, maxHeight)
   }
 
   return null
@@ -404,16 +572,17 @@ async function renderTerrain() {
   const height = terrainContainer.value.clientHeight
 
   scene = new THREE.Scene()
-  scene.background = new THREE.Color(0xf8fafc)
+  scene.background = new THREE.Color(0xf1f1f1)
 
-  camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 10000)
+  camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 10000)
 
   renderer = new THREE.WebGLRenderer({
-    antialias: false,
+    antialias: true,
     powerPreference: 'high-performance',
+    preserveDrawingBuffer: true,
   })
 
-  renderer.setPixelRatio(1)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
   renderer.setSize(width, height)
 
   terrainContainer.value.innerHTML = ''
@@ -421,23 +590,34 @@ async function renderTerrain() {
 
   controls = new OrbitControls(camera, renderer.domElement)
   controls.enableDamping = true
+  controls.maxPolarAngle = Math.PI / 2.02
+  controls.minDistance = 20
+  controls.maxDistance = 500
 
   const geometry = buildGeometry()
 
-  if (!geometry) {
+  if (!geometry || !geometry.boundingBox) {
     return
   }
 
   addTerrainToScene(geometry)
 
-  const ambientLight = new THREE.AmbientLight(0xffffff, 1.2)
+  const ambientLight = new THREE.AmbientLight(0xffffff, 1.15)
   scene.add(ambientLight)
 
-  const directionalLight = new THREE.DirectionalLight(0xffffff, 2)
-  directionalLight.position.set(80, 120, 80)
+  const hemiLight = new THREE.HemisphereLight(0xffffff, 0xd9d9d9, 0.65)
+  scene.add(hemiLight)
+
+  const directionalLight = new THREE.DirectionalLight(0xffffff, 1.35)
+  directionalLight.position.set(90, 120, 100)
   scene.add(directionalLight)
 
-  const gridHelper = new THREE.GridHelper(140, 14)
+  const fillLight = new THREE.DirectionalLight(0xffffff, 0.65)
+  fillLight.position.set(-70, 90, -70)
+  scene.add(fillLight)
+
+  const gridHelper = new THREE.GridHelper(145, 14, 0xb0b0b0, 0xcfcfcf)
+  gridHelper.position.y = 0
   scene.add(gridHelper)
 
   const box = geometry.boundingBox
@@ -450,9 +630,9 @@ async function renderTerrain() {
   const maxSize = Math.max(size.x, size.y, size.z, 1)
 
   camera.position.set(
-    center.x + maxSize * 0.8,
-    center.y + maxSize * 0.7,
-    center.z + maxSize * 0.9,
+    center.x - maxSize * 0.18,
+    center.y + maxSize * 0.72,
+    center.z + maxSize * 1.12,
   )
 
   controls.target.copy(center)
@@ -483,7 +663,7 @@ async function renderTerrain() {
   animate()
 }
 
-watch([grid, tin, geometrySource, renderMode, meshDetail], renderTerrain, {
+watch([grid, tin, geometrySource, renderMode, meshDetail, heightCutoffPercent], renderTerrain, {
   deep: true,
   flush: 'post',
 })
@@ -538,6 +718,47 @@ onBeforeUnmount(() => {
             <option :value="2000">Полная / 2000 × 2000</option>
           </select>
         </label>
+
+        <button
+          type="button"
+          class="secondary-action-button"
+          @click="export3dPng"
+        >
+          Export 3D PNG
+        </button>
+
+        <button
+          type="button"
+          class="secondary-action-button"
+          :disabled="!tin"
+          @click="exportTinObj"
+        >
+          Export TIN OBJ
+        </button>
+      </div>
+    </div>
+
+    <div class="terrain-toolbar">
+      <div class="height-filter-panel">
+        <div class="height-filter-header">
+          <span>Фильтр по высоте</span>
+          <strong v-if="activeZRange">
+            Показывать до: {{ currentHeightCutoffLabel }}
+          </strong>
+        </div>
+
+        <input
+          v-model.number="heightCutoffPercent"
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+        />
+
+        <div v-if="activeZRange" class="height-filter-scale">
+          <span>Мин: {{ formatNumber(activeZRange.zMin) }}</span>
+          <span>Макс: {{ formatNumber(activeZRange.zMax) }}</span>
+        </div>
       </div>
     </div>
 
@@ -550,6 +771,6 @@ onBeforeUnmount(() => {
       <strong>{{ tin.triangles_count }}</strong> треугольников
     </div>
 
-    <div ref="terrainContainer" class="terrain-container"></div>
+    <div ref="terrainContainer" class="terrain-container terrain-container-light"></div>
   </section>
 </template>

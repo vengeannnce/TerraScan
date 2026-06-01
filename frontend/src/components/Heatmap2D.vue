@@ -13,14 +13,22 @@ const grid = computed(() => {
 })
 
 const RANGE_COLORS = [
-  '#2563eb', // blue
-  '#0891b2', // cyan
-  '#16a34a', // green
-  '#84cc16', // light green
-  '#facc15', // yellow
-  '#f97316', // orange
-  '#dc2626', // red
+  '#2563eb',
+  '#0891b2',
+  '#16a34a',
+  '#84cc16',
+  '#facc15',
+  '#f97316',
+  '#dc2626',
 ]
+
+function getBaseFilename() {
+  const filename = terrainStore.processResult?.filename || 'terrain'
+
+  return filename
+    .replace(/\.[^/.]+$/, '')
+    .replace(/[^a-zA-Z0-9а-яА-Я_-]/g, '_')
+}
 
 function getZRange(zMatrix) {
   let min = Infinity
@@ -189,14 +197,16 @@ async function renderHeatmap() {
         },
         fill: 'tonexty',
         fillcolor: 'rgba(17, 24, 39, 0.18)',
-        name: 'Terrain profile',
-        hovertemplate: 'X: %{x:.2f}<br>Height: %{y:.2f}<extra></extra>',
+        name: 'Профиль рельефа',
+        hovertemplate: 'X: %{x:.2f}<br>Высота: %{y:.2f}<extra></extra>',
       },
     ]
 
     const layout = {
-      title: 'Side Elevation Profile',
+      title: 'Боковой профиль рельефа',
       autosize: true,
+      paper_bgcolor: '#ffffff',
+      plot_bgcolor: '#ffffff',
       margin: {
         l: 70,
         r: 30,
@@ -204,10 +214,10 @@ async function renderHeatmap() {
         b: 60,
       },
       xaxis: {
-        title: 'Distance / X coordinate',
+        title: 'Расстояние / координата X',
       },
       yaxis: {
-        title: 'Height',
+        title: 'Высота',
         tickmode: 'array',
         tickvals: buildProfileTickValues(bands),
       },
@@ -237,14 +247,16 @@ async function renderHeatmap() {
       zmin: min,
       zmax: max,
       colorbar: {
-        title: isElevationMode ? 'Elevation zones' : 'Height Z',
+        title: isElevationMode ? 'Зоны высот' : 'Высота Z',
       },
     },
   ]
 
   const layout = {
-    title: isElevationMode ? '2D Elevation Zone Map' : '2D Terrain Heatmap',
+    title: isElevationMode ? 'Карта зон высот' : 'Тепловая карта рельефа',
     autosize: true,
+    paper_bgcolor: '#ffffff',
+    plot_bgcolor: '#ffffff',
     margin: {
       l: 60,
       r: 30,
@@ -252,10 +264,10 @@ async function renderHeatmap() {
       b: 60,
     },
     xaxis: {
-      title: 'X coordinate',
+      title: 'Координата X',
     },
     yaxis: {
-      title: 'Y coordinate',
+      title: 'Координата Y',
     },
   }
 
@@ -265,6 +277,26 @@ async function renderHeatmap() {
   }
 
   Plotly.react(heatmapContainer.value, data, layout, config)
+}
+
+async function export2dPng() {
+  if (!heatmapContainer.value || !grid.value) {
+    return
+  }
+
+  const modeName = {
+    smooth: 'heatmap',
+    elevation: 'elevation_zones',
+    profile: 'side_profile',
+  }[mapMode.value]
+
+  await Plotly.downloadImage(heatmapContainer.value, {
+    format: 'png',
+    filename: `${getBaseFilename()}_${modeName}`,
+    width: 1600,
+    height: 900,
+    scale: 2,
+  })
 }
 
 watch([grid, mapMode], renderHeatmap, {
@@ -289,14 +321,24 @@ onBeforeUnmount(() => {
         </p>
       </div>
 
-      <label class="mode-switcher">
-        Режим карты:
-        <select v-model="mapMode">
-          <option value="smooth">Плавный градиент</option>
-          <option value="elevation">Зоны высот</option>
-          <option value="profile">Боковой профиль</option>
-        </select>
-      </label>
+      <div class="mode-controls">
+        <label class="mode-switcher">
+          Режим карты:
+          <select v-model="mapMode">
+            <option value="smooth">Плавный градиент</option>
+            <option value="elevation">Зоны высот</option>
+            <option value="profile">Боковой профиль</option>
+          </select>
+        </label>
+
+        <button
+          type="button"
+          class="secondary-action-button"
+          @click="export2dPng"
+        >
+          Export 2D PNG
+        </button>
+      </div>
     </div>
 
     <div ref="heatmapContainer" class="heatmap-container"></div>
